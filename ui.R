@@ -11,7 +11,7 @@ learners = SuperLearner::listWrappers(what='SL')
 learners = learners[startsWith(learners, 'SL.')]
 
 fluidPage(
-
+  
   tags$head(
     tags$style(HTML("
     .tippy-content {
@@ -22,21 +22,22 @@ fluidPage(
     }
   "))
   ),
-
+  
   theme = shinytheme("flatly"),
   useShinyjs(),  # Initialize shinyjs
   titlePanel("drcmd: Doubly-robust causal inference with missing data"),
-
+  
   sidebarLayout(
-
+    
     # Panel on the lefthand side for input
     sidebarPanel(
-
+      
       # Upload data
       fileInput("datafile", "Upload Dataset (CSV)", accept = ".csv"),
-
+      
       #-------------- Variable selection -------------
       selectInput("outcome", "Select Outcome Variable", choices = NULL), # Y
+      actionButton("infoButton1", "hover", title = "This is a tooltip"),
       selectInput("treatment", "Select Treatment Variable", choices = NULL), # A
       selectizeInput(
         "covariates", "Select Covariates",
@@ -49,22 +50,22 @@ fluidPage(
                  placement = "right",
                  animation = "shift-away",
                  theme = "light-border"),
-
+      
       # Eventually we'll want a proxy variable (W) window, but we'll hold off for now
       # selectizeInput("proxies", "Select Proxy Variables", choices = NULL, multiple = TRUE), # W
-
+      
       # Button to auto-select all available covariates.
       actionButton("select_all", "Select All Covariates"),
       br(), br(),
-
+      
       #-------------- Parameter value selection -------------
-
+      
       # Menu to set params (always visible)
       selectInput('default_learners', 'Default Learners',
                   label = tags$span("Default Learners", id = "default_learners_label"),
                   choices=learners,
                   multiple=TRUE),
-
+      
       # Collapsible section for advanced params. Will want this to match everything
       # in drcmd, and have them set to the default values in drcmd
       # Idea is some params won't be of interest to users, so no need to show them by default
@@ -74,36 +75,52 @@ fluidPage(
                  bsCollapsePanel(
                    "Advanced Options",  # title of the collapsible section
                    # Add your menu options here with default values
-                   selectInput("option1", "Select Option 1",
-                               choices = c("A", "B", "C"),
-                               selected = "A"),
-                   numericInput("option2", "Numeric Option", value = 10),
-                   textInput("option3", "Text Option", value = "default"),
+                   tags$label(id = "cross_fitting_label", "Number of folds"), # Need to make a tag for just the title. 
+                   numericInput("Cross-fitting", NULL, value = 1), #"By default, DRCMD uses a single fold"
+                   tippy_this("cross_fitting_label", "Cross-fitting estimates parameters by splitting data into multiple folds (k-folds). This helps reduce bias when using complex models like random forests. By default, drcmd uses a single fold. Set k to enable cross-fitting. See the technical details section for more info.", placement = "right", animation= "shift away", theme="light-border"), # Copied your look for the pop-up here and for the rest of the popups
+                   
+                   tags$label(id = "empirical_efficiency_label", "Empirical Efficiency"),
+                   selectInput("empirical_efficiency", NULL, choices = c("True", "False")),#I was unsure if I should make these actual booleans or not
+                   tippy_this("empirical_efficiency_label", "Empirical Efficiency Maximization (EEM) helps improve the estimation of difficult nuisance functions (like φa(Z)) by minimizing the **asymptotic variance** of the causal estimand instead of just focusing on minimizing the mean squared error. This approach, which can be applied when estimating φa through complex nuisance learners, is an optional method. Set `eem_ind = TRUE` to enable it.", placement = "right", animation= "shift away", theme="light-border"),
+                   
+                   tags$label(id = "targetted_maximum_label", "Targetted maximum likelihood estimation"),
+                   selectInput("targetted_maximum", NULL , choices = c("True", "False")), #I was also unsure here if I should make these actual booleans or not
+                   tippy_this("targetted_maximum_label", "Targeted Maximum Likelihood Estimation (TML) is an alternative approach to estimate counterfactual means and treatment effects. Unlike the default one-step debiased estimators, TML refines the final estimators by targeting the likelihood function to improve accuracy. Set `tml = TRUE` to use this asymptotically equivalent method.", placement = "right", animation= "shift away", theme="light-border"), 
+                   
+                   tags$label(id = "truncate_propensity_label", "Targetted maximum likelihood estimation"),
+                   selectInput("truncate_value", NULL, choices = c("True" = 1, "False" = 0)),
+                   tippy_this("truncate_propensity_label", "Trimming of propensity scores helps prevent unstable estimators by limiting extreme values, which are used in inverse probability weights. By default, drcmd trims scores at 0.025 and 0.975. You can adjust this range by setting the `cutoff` argument to specify custom limits (e.g., setting `cutoff = 0` avoids trimming).", placement = "right", animation= "shift away", theme="light-border"), 
+                   
+                   tags$label(id = "complete-case_probability_label", "Enter complete-case probabilities"),
+                   numericInput("rprobs_value", NULL, value = 0.5, min = 0, max = 1),
+                   tippy_this("complete-case_probability_label","In some study designs (e.g., two-phase sampling), the probability of an observation being a complete case is known and can be controlled by the researcher. In these cases, users can provide these probabilities using the `Rprobs` argument, instead of relying on drcmd’s default estimation.", placement = "right", animation= "shift away", theme="light-border"), 
+                   
+                   
                    style = "primary"
                  )
       ),
-
+      
       #-------------- Hovering labels for menu items -------------
-
+      
       # Hovering labels for menu items
       tippy_this("covariates_label",
                  tooltip = "Covariates are additional variables that help control for confounding effects in the regression analysis.",
                  placement = "right",
                  animation = "shift-away",
                  theme = "light-border"),
-
+      
       tippy_this("default_learners_label",
                  tooltip = "drcmd fits multiple regression models en route to forming causal effect estimates. Users have flexibility to choose how to fit these models -- drcmd uses the SuperLearner prediction library, which supports numerous machine learning algorithms and simpler methods like linear regression.<br/><br/>If multiple are selected, SuperLearner will form predictions as a weighted average of all selected methods. ",
                  placement = "right",
                  animation = "shift-away",
                  theme = "light-border"),
-
-
-
+      
+      
+      
       # Button to run the regression.
       actionButton("run_regression", "Run drcmd")
     ),
-
+    
     # Main panel on the right for output
     mainPanel(
       h4("Dataset Preview"),
