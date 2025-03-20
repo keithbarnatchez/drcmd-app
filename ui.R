@@ -26,7 +26,6 @@ fluidPage(
   theme = shinytheme("flatly"),
   useShinyjs(),  # Initialize shinyjs
   titlePanel("drcmd: Doubly-robust causal inference with missing data"),
-  
   sidebarLayout(
     
     # Panel on the lefthand side for input
@@ -37,10 +36,10 @@ fluidPage(
       
       #-------------- Variable selection -------------
       selectInput("outcome", "Select Outcome Variable", choices = NULL), # Y
-      actionButton("infoButton1", "hover", title = "This is a tooltip"),
+      # actionButton("infoButton1", "hover", title = "This is a tooltip"),
       selectInput("treatment", "Select Treatment Variable", choices = NULL), # A
       selectizeInput(
-        "covariates", "Select Covariates",
+        "covariates", "Select Covariate(s)",
         label = tags$span("Select Covariates", id = "covariates_label"),
         choices = NULL,
         multiple = TRUE
@@ -87,13 +86,34 @@ fluidPage(
                    selectInput("targetted_maximum", NULL , choices = c("True", "False")), #I was also unsure here if I should make these actual booleans or not
                    tippy_this("targetted_maximum_label", "Targeted Maximum Likelihood Estimation (TML) is an alternative approach to estimate counterfactual means and treatment effects. Unlike the default one-step debiased estimators, TML refines the final estimators by targeting the likelihood function to improve accuracy. Set `tml = TRUE` to use this asymptotically equivalent method.", placement = "right", animation= "shift away", theme="light-border"), 
                    
-                   tags$label(id = "truncate_propensity_label", "Targetted maximum likelihood estimation"),
-                   selectInput("truncate_value", NULL, choices = c("True" = 1, "False" = 0)),
-                   tippy_this("truncate_propensity_label", "Trimming of propensity scores helps prevent unstable estimators by limiting extreme values, which are used in inverse probability weights. By default, drcmd trims scores at 0.025 and 0.975. You can adjust this range by setting the `cutoff` argument to specify custom limits (e.g., setting `cutoff = 0` avoids trimming).", placement = "right", animation= "shift away", theme="light-border"), 
+                   tags$label(id = "truncate_propensity_label", "Trimming of propensity scores"),
+                   numericInput("truncate-propensity", NULL, value = 0, min = 0, max = 1),
+                   tippy_this("truncate_propensity_label", "Trimming of propensity scores helps prevent unstable estimators by limiting extreme values, which are used in inverse probability weights. By default, drcmd trims scores at 0.025 and 0.975. You can adjust this range by setting the `cutoff` argument to specify custom limits (e.g., setting `cutoff = 0` avoids trimming) The number you select is symmetrical.", placement = "right", animation= "shift away", theme="light-border"), 
                    
-                   tags$label(id = "complete-case_probability_label", "Enter complete-case probabilities"),
-                   numericInput("rprobs_value", NULL, value = 0.5, min = 0, max = 1),
-                   tippy_this("complete-case_probability_label","In some study designs (e.g., two-phase sampling), the probability of an observation being a complete case is known and can be controlled by the researcher. In these cases, users can provide these probabilities using the `Rprobs` argument, instead of relying on drcmd’s default estimation.", placement = "right", animation= "shift away", theme="light-border"), 
+                   selectInput('complete-case_probability', '',
+                               label = tags$span("Select complete case probability column", id = "complete-case_label"),
+                               choices=NULL,
+                               multiple=FALSE),
+                   
+                   selectInput('treatment_learners', '',
+                               label = tags$span("Select treatment learner", id = "treatment_learners_label"),
+                               choices=learners,
+                               multiple=FALSE),
+                   
+                   selectInput('outcome_learners', '',
+                               label = tags$span("Selected outcome learner", id = "outcome_learners_label"),
+                               choices=learners,
+                               multiple=FALSE),
+                   
+                   selectInput('pseudo-outcome_learners', '',
+                               label = tags$span("Selected pseudo-outcome learner", id = "psuedo-learners_label"),
+                               choices=learners,
+                               multiple=FALSE),
+                   
+                   selectInput('complete-case_probability_learners', '',
+                               label = tags$span("Selected complete-case probability learner", id = "complete-case_learners_label"),
+                               choices=learners,
+                               multiple=FALSE),
                    
                    
                    style = "primary"
@@ -109,11 +129,42 @@ fluidPage(
                  animation = "shift-away",
                  theme = "light-border"),
       
-      tippy_this("default_learners_label",
+      tippy_this("complete-case_label", 
+                 tooltip = "In some study designs (e.g., two-phase sampling), the probability of an observation being a complete case is known and can be controlled by the researcher. In these cases, users can provide these probabilities using the `Rprobs` argument, instead of relying on drcmd’s default estimation.",
+                 placement = "right",
+                 animation = "shift-away",
+                 theme = "light-border"),
+      
+      tippy_this("default_learners_label", # here is where it starts for the learner inputs
                  tooltip = "drcmd fits multiple regression models en route to forming causal effect estimates. Users have flexibility to choose how to fit these models -- drcmd uses the SuperLearner prediction library, which supports numerous machine learning algorithms and simpler methods like linear regression.<br/><br/>If multiple are selected, SuperLearner will form predictions as a weighted average of all selected methods. ",
                  placement = "right",
                  animation = "shift-away",
                  theme = "light-border"),
+      
+      tippy_this("treatment_learners_label",
+                 tooltip = "In the case you would like to use a specific learner for the treatment model, rather than using a default learner for all of the variables, you may select it here.",
+                 placement = "right",
+                 animation = "shift-away",
+                 theme = "light-border"),
+      
+      tippy_this("outcome_learners_label",
+                 tooltip = "In the case you would like to use a specific learner for the outcome model, rather than using a default learner for all of the variables, you may select it here.",
+                 placement = "right",
+                 animation = "shift-away",
+                 theme = "light-border"),
+      
+      tippy_this("psuedo-learners_label",
+                 tooltip = "In the case you would like to use a specific learner for the pseudo outcome model, rather than using a default learner for all of the variables, you may select it here.",
+                 placement = "right",
+                 animation = "shift-away",
+                 theme = "light-border"),
+      
+      tippy_this("complete-case_learners_label",
+                 tooltip = "In the case you would like to use a specific learner for the complete case probability model, rather than using a default learner for all of the variables, you may select it here.",
+                 placement = "right",
+                 animation = "shift-away",
+                 theme = "light-border"),
+      
       
       
       
@@ -123,7 +174,7 @@ fluidPage(
     
     # Main panel on the right for output
     mainPanel(
-      h4("Dataset Preview"),
+      # h4("Dataset Preview"),
       tableOutput("datatable"),
       hr(),
       h4("Results"),
