@@ -20,6 +20,14 @@ fluidPage(
       max-width: 500px !important;
       padding: 2px !important;
     }
+    #truncate-propensity[type='number']::-webkit-outer-spin-button,
+        #truncate-propensity[type='number']::-webkit-inner-spin-button {
+            -webkit-appearance: none; /*here I remove the webkit appearance pseudo elements/*
+            margin: 0;
+        }
+        #truncate-propensity {
+            -moz-appearance: textfield;
+        }
   "))
   ),
   
@@ -88,10 +96,10 @@ fluidPage(
                    
                    tags$label(id = "truncate_propensity_label", "Trimming of propensity scores"),
                    numericInput("truncate-propensity", NULL, value = 0, min = 0, max = 1),
-                   tippy_this("truncate_propensity_label", "Trimming of propensity scores helps prevent unstable estimators by limiting extreme values, which are used in inverse probability weights. By default, drcmd trims scores at 0.025 and 0.975. You can adjust this range by setting the `cutoff` argument to specify custom limits (e.g., setting `cutoff = 0` avoids trimming) The number you select is symmetrical.", placement = "right", animation= "shift away", theme="light-border"), 
+                   tippy_this("truncate_propensity_label", "Trimming of propensity scores helps prevent unstable estimators by limiting extreme values, which are used in inverse probability weights. By default, drcmd trims scores at 0.025 and 0.975. You can adjust this range by setting the `cutoff` argument to specify custom limits (e.g., setting `cutoff = 0` avoids trimming) The number you select is symmetrical. Needs ∈ [0,1]", placement = "right", animation= "shift away", theme="light-border"), 
                    
-                   selectInput('complete-case_probability', '',
-                               label = tags$span("Select complete case probability column", id = "complete-case_label"),
+                   selectInput('complete_case_probability', '',
+                               label = tags$span("Select complete case probability column", id = "complete_case_label"),
                                choices=NULL,
                                multiple=FALSE),
                    
@@ -110,8 +118,8 @@ fluidPage(
                                choices=learners,
                                multiple=FALSE),
                    
-                   selectInput('complete-case_probability_learners', '',
-                               label = tags$span("Selected complete-case probability learner", id = "complete-case_learners_label"),
+                   selectInput('complete_case_probability_learners', '',
+                               label = tags$span("Selected complete-case probability learner", id = "complete_case_learners_label"),
                                choices=learners,
                                multiple=FALSE),
                    
@@ -129,7 +137,7 @@ fluidPage(
                  animation = "shift-away",
                  theme = "light-border"),
       
-      tippy_this("complete-case_label", 
+      tippy_this("complete_case_label", 
                  tooltip = "In some study designs (e.g., two-phase sampling), the probability of an observation being a complete case is known and can be controlled by the researcher. In these cases, users can provide these probabilities using the `Rprobs` argument, instead of relying on drcmd’s default estimation.",
                  placement = "right",
                  animation = "shift-away",
@@ -159,7 +167,7 @@ fluidPage(
                  animation = "shift-away",
                  theme = "light-border"),
       
-      tippy_this("complete-case_learners_label",
+      tippy_this("complete_case_learners_label",
                  tooltip = "In the case you would like to use a specific learner for the complete case probability model, rather than using a default learner for all of the variables, you may select it here.",
                  placement = "right",
                  animation = "shift-away",
