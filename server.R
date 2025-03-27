@@ -9,6 +9,7 @@ function(input, output, session) {
   disable("treatment")
   disable("covariates")
   disable("select_all")
+  disable("complete_case_probability") # this needs to be disabled too*
 
   # Load data specified by user
   data <- reactive({
@@ -29,11 +30,13 @@ function(input, output, session) {
     updateSelectInput(session, "outcome", choices = all_vars)
     updateSelectInput(session, "treatment", choices = all_vars)
     updateSelectizeInput(session, "covariates", choices = all_vars)
+    updateSelectInput(session, "complete_case_probability", choices = all_vars) # this needed to be updated as well when a dataset is added. 
 
     enable("outcome")
     enable("treatment")
     enable("covariates")
     enable("select_all")
+    enable("complete_case_probability")
   })
 
   # Don't want anything getting double selected. If something is selected as
@@ -55,18 +58,29 @@ function(input, output, session) {
     req(data())
     all_vars <- names(data())
     exclude_vars <- c()
+    exclude_ccp_vars <- c() # need to make a new one that includes Y, A, AND X**
     if (!is.null(input$outcome) && input$outcome != "") {
       exclude_vars <- c(exclude_vars, input$outcome)
+      exclude_ccp_vars <- c(exclude_vars, input$outcome) 
     }
     if (!is.null(input$treatment) && input$treatment != "") {
       exclude_vars <- c(exclude_vars, input$treatment)
+      exclude_ccp_vars <- c(exclude_vars, input$treatment)
+    }
+    if (!is.null(input$covariates) && length(input$covariates) > 0) {
+      exclude_ccp_vars <- c(exclude_vars, input$covariates) # only need to updatee ccp vars here
     }
     available_covars <- setdiff(all_vars, exclude_vars)
+    available_ccp_vars <- setdiff(all_vars, exclude_ccp_vars)
 
     updateSelectizeInput(session, "covariates",
                          choices = available_covars,
                          selected = intersect(input$covariates, available_covars))
-  })
+    
+    updateSelectInput(session, "complete_case_probability",
+                      choices = available_ccp_vars, # same logic here with new variable
+                      selected = if (input$`complete_case_probability` %in% available_ccp_vars) input$`complete_case_probability` else NULL)
+  }) # essentially 
 
   # Button for letting user select all available covariates
   # Will select all variables excluding what's selected for Y and A, since a variable
@@ -81,9 +95,13 @@ function(input, output, session) {
     if (!is.null(input$treatment) && input$treatment != "") {
       exclude_vars <- c(exclude_vars, input$treatment)
     }
+    if (!is.null(input$complete_case_probability) && input$complete_case_probability != ""){
+      exclude_vars <- c(exclude_vars, input$complete_case_probability)
+    }
     available_covars <- setdiff(all_vars, exclude_vars)
     updateSelectizeInput(session, "covariates", selected = available_covars)
   })
+  
 
   # Preview of the data
   # Don't know if we'll actually keep this feature but it's here for now
