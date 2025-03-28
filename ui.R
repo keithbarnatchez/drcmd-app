@@ -95,11 +95,16 @@ fluidPage(
                    tippy_this("targetted_maximum_label", "Targeted Maximum Likelihood Estimation (TML) is an alternative approach to estimate counterfactual means and treatment effects. Unlike the default one-step debiased estimators, TML refines the final estimators by targeting the likelihood function to improve accuracy. Set `tml = TRUE` to use this asymptotically equivalent method.", placement = "right", animation= "shift away", theme="light-border"), 
                    
                    tags$label(id = "truncate_propensity_label", "Trimming of propensity scores"),
-                   numericInput("truncate-propensity", NULL, value = 0, min = 0, max = 1),
-                   tippy_this("truncate_propensity_label", "Trimming of propensity scores helps prevent unstable estimators by limiting extreme values, which are used in inverse probability weights. By default, drcmd trims scores at 0.025 and 0.975. You can adjust this range by setting the `cutoff` argument to specify custom limits (e.g., setting `cutoff = 0` avoids trimming) The number you select is symmetrical. Needs ∈ [0,1]", placement = "right", animation= "shift away", theme="light-border"), 
+                   numericInput("truncate-propensity", NULL, value = 0, min = 0, max = 0.5),
+                   tippy_this("truncate_propensity_label", "Trimming of propensity scores helps prevent unstable estimators by limiting extreme values, which are used in inverse probability weights. By default, drcmd trims scores at 0.025 and 0.975. You can adjust this range by setting the `cutoff` argument to specify custom limits (e.g., setting `cutoff = 0` avoids trimming) The number you select is symmetrical. Value ∈ [0,0.5]", placement = "right", animation= "shift away", theme="light-border"), 
                    
                    selectInput('complete_case_probability', '',
                                label = tags$span("Select complete case probability column", id = "complete_case_label"),
+                               choices=NULL,
+                               multiple=FALSE),
+                   
+                   selectInput('proxy_variables', '', # added this for proxy
+                               label = tags$span("Select proxy variable column", id = "proxy_variables_label"),
                                choices=NULL,
                                multiple=FALSE),
                    
@@ -109,17 +114,17 @@ fluidPage(
                                multiple=FALSE),
                    
                    selectInput('outcome_learners', '',
-                               label = tags$span("Selected outcome learner", id = "outcome_learners_label"),
+                               label = tags$span("Select outcome learner", id = "outcome_learners_label"),
                                choices=learners,
                                multiple=FALSE),
                    
                    selectInput('pseudo-outcome_learners', '',
-                               label = tags$span("Selected pseudo-outcome learner", id = "psuedo-learners_label"),
+                               label = tags$span("Select pseudo-outcome learner", id = "psuedo-learners_label"),
                                choices=learners,
                                multiple=FALSE),
                    
                    selectInput('complete_case_probability_learners', '',
-                               label = tags$span("Selected complete-case probability learner", id = "complete_case_learners_label"),
+                               label = tags$span("Select complete-case probability learner", id = "complete_case_learners_label"),
                                choices=learners,
                                multiple=FALSE),
                    
@@ -173,11 +178,17 @@ fluidPage(
                  animation = "shift-away",
                  theme = "light-border"),
       
+      tippy_this("proxy_variables_label",
+                 tooltip = "TESTING, TEST", # I dont really know how to describe these well in context
+                 placement = "right",
+                 animation = "shift-away",
+                 theme = "light-border"),
       
       
       
       # Button to run the regression.
       actionButton("run_regression", "Run drcmd")
+      
     ),
     
     # Main panel on the right for output
@@ -186,7 +197,8 @@ fluidPage(
       tableOutput("datatable"),
       hr(),
       h4("Results"),
-      verbatimTextOutput("drcmd_output")
+      verbatimTextOutput("drcmd_output"),
+      uiOutput("validation_message")
     )
   )
 )
