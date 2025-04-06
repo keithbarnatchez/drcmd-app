@@ -46,17 +46,7 @@ function(input, output, session) {
 
   # Don't want anything getting double selected. If something is selected as
   # outcome, make it so it can't be selected as treatment
-  observe({
-    req(data())
-    all_vars <- names(data())
-    if (!is.null(input$outcome) && input$outcome != "") {
-      updateSelectInput(session, "treatment",
-                        choices = setdiff(all_vars, input$outcome),
-                        selected = if(input$treatment %in% setdiff(all_vars, input$outcome)) input$treatment else NULL)
-    } else {
-      updateSelectInput(session, "treatment", choices = all_vars)
-    }
-  })
+  
 
   # Similarly, make it so selected Y + A can't be selected to go into X
   observe({
@@ -65,6 +55,15 @@ function(input, output, session) {
     exclude_vars <- c()
     exclude_ccp_vars <- c()# need to make a new one that includes Y, A, AND X**
     exclude_proxy_vars <- c() # same as above, also disclude ccp column
+    
+    if (!is.null(input$outcome) && input$outcome != "") {
+      updateSelectInput(session, "treatment",
+                        choices = setdiff(all_vars, input$outcome),
+                        selected = if(input$treatment %in% setdiff(all_vars, input$outcome)) input$treatment else NULL)
+    } else {
+      updateSelectInput(session, "treatment", choices = all_vars)
+    }
+    
     if (!is.null(input$outcome) && input$outcome != "") {
       exclude_vars <- c(exclude_vars, input$outcome)
       exclude_ccp_vars <- c(exclude_vars, input$outcome) 
@@ -79,10 +78,7 @@ function(input, output, session) {
       exclude_ccp_vars <- c(exclude_vars, input$covariates) # only need to updatee ccp vars her
       exclude_proxy_vars <- c(exclude_vars, input$covariates)
     }
-    if (!is.null(input$complete_case_proability) && length(input$complete_case_probability) > 0) {
-      exclude_ccp_vars <- c(exclude_vars, input$complete_case_probability) # only need to update proxy vars from here on
-      exclude_proxy_vars <- c(exclude_vars, input$complete_case_probability)
-    }
+
     available_covars <- setdiff(all_vars, exclude_vars)
     available_ccp_vars <- setdiff(all_vars, exclude_ccp_vars)
     available_proxy_vars <- setdiff(all_vars, exclude_proxy_vars)
@@ -93,17 +89,17 @@ function(input, output, session) {
     
     updateSelectInput(session, "complete_case_probability",
                       choices = available_ccp_vars, # same logic here with new variable
-                      selected = "")
+                      selected = NULL)
                       
     updateSelectInput(session, "proxy_variables",
                       choices = available_proxy_vars,
-                      selected = ""
-    )
+                      selected = NULL)
   }) # essentially only allow non-conflicting columns else null
 
   # Button for letting user select all available covariates 
   # Will select all variables excluding what's selected for Y and A, since a variable
   # can't be a covariate (in X) and an outcome/treatment simultaneously
+  
   observeEvent(input$select_all, {
     req(data())
     all_vars <- names(data())
@@ -124,7 +120,7 @@ function(input, output, session) {
   # Logic for handling correct data
   
   observe({
-    req(data(), input$treatment, input$outcome)
+    req(data(), input$treatment, input$outcome) #, input$covariates
     treatment_values <- data()[[input$treatment]]
     outcome_values <- data()[[input$outcome]]
     
@@ -134,40 +130,103 @@ function(input, output, session) {
     } 
     
     ccp_values <- NULL
-    if (!is.null(input$complete_case_probability) && length(input$complete_case_probability) > 0) {
+    if (!is.null(input$complete_case_probability) && input$complete_case_probability != "") {
       ccp_values <- data()[, input$complete_case_probability, drop = FALSE]
-    } 
+    }
+    
     
     proxy_values <- NULL
-    if (!is.null(input$proxy_variables) && length(input$proxy_variables > 0)) {
+    if (!is.null(input$proxy_variables) && input$proxy_variables != "") {
       proxy_values <- data()[, input$proxy_variables, drop = FALSE]
-    } 
+    }
+    
     
     errors <- list() # make it a list of errors so it can dynamically change 
     
-    if (!all(treatment_values %in% c(0,1))) {
-      errors <- append(errors, "Your treatment column must contain only 1's and 0's")
-      }
-    if(!is.numeric(outcome_values)) {
+    # here we set "*nothing*" and "NA" as an actual NA in all of the columns I can change this if DRCMD better handles "*nothing*" as missing data rather than NA
+    treatment_values[treatment_values == "" | treatment_values == "NA"] <- NA 
+    outcome_values[outcome_values == "" | outcome_values == "NA"] <- NA
+    covariate_values[covariate_values == "" | covariate_values == "NA"] <- NA
+    ccp_values[ccp_values == "" | ccp_values == "NA"] <- NA
+    proxy_values[proxy_values == "" | proxy_values == "NA"] <- NA
+    
+    
+    if (!all(treatment_values %in% c(0,1,NA))) { # can only be 0's 1's and NAs, in the above code 
+      errors <- append(errors, "Your treatment column must contain only 1's, 0's, blanks/NA's")
+    }
+    
+    if(!all(is.numeric(outcome_values))) {
       errors <- append(errors, "Your outcome column must be entirely numeric")
     }
-    if(!is.null(input$covariates) && !is.numeric(covariate_values)) {
-      errors <- append(errors, "Your covariates column must be entirely numeric")
+    
+    if (!is.null(covariate_values)) {
+      numeric_check <- sapply(covariate_values, is.numeric)
+      if (!all(numeric_check)) {
+        errors <- append(errors, "Your covariates column(s) must be entirely numeric.")
+      }
     }
-    if(!is.null(input$complete_case_probability) && !is.numeric(ccp_values)) {
-      errors <- append(errors, "your complete case probabilties must be entirely numeric probabilities ∈ [0,1] ")
+    
+    if (!is.null(input$complete_case_probability) && input$complete_case_probability != "") {
+      # check that all elements in the column are numeric and in (0,1)
+      if (!all(sapply(ccp_values, is.numeric)) || !all(unlist(ccp_values) > 0 & unlist(ccp_values) < 1)) {
+        errors <- append(errors, "Your complete case probabilities must be entirely numeric probabilities ∈ (0,1).")
+        print(input$complete_case_probability)
+      }
     }
-    if(!is.null(input$proxy_variables) && !is.numeric(ccp_values)) {
-      errors <- append(errors, "your proxy variables must be entirely numeric")
+    
+    if (!is.null(input$proxy_variables) && input$proxy_variables != "") {
+      if (!all(sapply(proxy_values, is.numeric))) {
+        errors <- append(errors, "Your proxy variables must be entirely numeric.")
+        print(proxy_values)
+      }
     }
+    
+    selected_columns <- list(
+      treatment_values,
+      outcome_values,
+      covariate_values,
+      ccp_values,
+      proxy_values
+    )
+    
+    all_missing <- all(sapply(selected_columns, function(col) { # ensure that all data columns aren't fully empty
+      if (is.null(col)) { # if there is a completely null column, return null
+        return(TRUE)  
+      }
+      if (is.data.frame(col)) {
+        return(all(is.na(unlist(col)))) # treat all values in the df as a long vector, and check if that is na
+      } else {
+        return(all(is.na(col))) # otherwise just check if the column is na
+      }
+    }))
+    
+    if (all_missing) {
+      errors <- append(errors, "You need to have at least one data column selected without ANY missing values.")
+    }
+    
+    any_fully_missing <- any(sapply(selected_columns, function(col) { # for ANY missing columns
+      if (is.null(col)) {
+        return(FALSE)
+      }
+      if (is.data.frame(col)) { # if col is an actual dataframe, apply the function to each colunn x in col
+        return(any(sapply(col, function(x) all(is.na(x)))))
+      } else {
+        return(all(is.na(col))) # otherwise, just check if the entire col is NA
+      }
+    }))
+    
+    if (any_fully_missing) {
+      errors <- append(errors, "One or more selected columns is completely filled with missing values.")
+    }
+    
     if (length(errors) > 0) { # only disable the button if there are any errors
       disable("run_regression")
       output$validation_message <- renderUI({
-        div(style = "color: red;", paste("ERRORS[",length(errors),"]: ", errors, collapse = ", ")) # errors are neatly listed on the right
+        div(style = "color: red;", paste("WARNINGS[",length(errors),"]: ", errors, collapse = ", ")) # errors are neatly listed on the right
       })
     } else {
       enable("run_regression")
-      output$validation_message <- renderUI({NULL}) # not needed
+      output$validation_message <- renderUI({NULL}) # warning is not needed
     }
   })
 
