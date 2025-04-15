@@ -4,11 +4,14 @@ library(shinyjs) # need this for allowing buttons to interact with each other
 library(shinyBS) # allows for hovering descriptions
 library(tippy)
 
+
 # SL libraries available to the user
 # Note: we'll want to create a "crosswalk" that translates these into plain-english
 # options users will be able to interpret. e.g. SL.nnet -> Neural networks (nnet package)
 learners = SuperLearner::listWrappers(what='SL')
 learners = learners[startsWith(learners, 'SL.')]
+
+learners_with_none <- c("None" = "", learners)
 
 fluidPage(
   
@@ -95,7 +98,7 @@ fluidPage(
                    tippy_this("targetted_maximum_label", "Targeted Maximum Likelihood Estimation (TML) is an alternative approach to estimate counterfactual means and treatment effects. Unlike the default one-step debiased estimators, TML refines the final estimators by targeting the likelihood function to improve accuracy. Set `tml = TRUE` to use this asymptotically equivalent method.", placement = "right", animation= "shift away", theme="light-border"), 
                    
                    tags$label(id = "truncate_propensity_label", "Trimming of propensity scores"),
-                   numericInput("truncate-propensity", NULL, value = 0, min = 0, max = 0.5),
+                   numericInput("truncate-propensity", NULL, value = 0.025, min = 0, max = 0.5),
                    tippy_this("truncate_propensity_label", "Trimming of propensity scores helps prevent unstable estimators by limiting extreme values, which are used in inverse probability weights. By default, drcmd trims scores at 0.025 and 0.975. You can adjust this range by setting the `cutoff` argument to specify custom limits (e.g., setting `cutoff = 0` avoids trimming) The number you select is symmetrical. Value ∈ [0,0.5]", placement = "right", animation= "shift away", theme="light-border"), 
                    
                    selectInput('complete_case_probability', '',
@@ -110,23 +113,27 @@ fluidPage(
                    
                    selectInput('treatment_learners', '',
                                label = tags$span("Select treatment learner", id = "treatment_learners_label"),
-                               choices=learners,
-                               multiple=FALSE),
+                               choices=learners_with_none,
+                               multiple=FALSE,
+                               ),
                    
                    selectInput('outcome_learners', '',
                                label = tags$span("Select outcome learner", id = "outcome_learners_label"),
-                               choices=learners,
-                               multiple=FALSE),
+                               choices=learners_with_none,
+                               multiple=FALSE,
+                               ),
                    
-                   selectInput('pseudo-outcome_learners', '',
+                   selectInput('pseudo_outcome_learners', '',
                                label = tags$span("Select pseudo-outcome learner", id = "psuedo-learners_label"),
-                               choices=learners,
-                               multiple=FALSE),
+                               choices=learners_with_none,
+                               multiple=FALSE,
+                               ),
                    
                    selectInput('complete_case_probability_learners', '',
                                label = tags$span("Select complete-case probability learner", id = "complete_case_learners_label"),
-                               choices=learners,
-                               multiple=FALSE),
+                               choices=learners_with_none,
+                               multiple=FALSE,
+                               ),
                    
                    
                    style = "primary"
@@ -198,6 +205,10 @@ fluidPage(
       hr(),
       h4("Results"),
       verbatimTextOutput("drcmd_output"),
+      hr(),
+      h4("Diagnostic Plots"),
+      hr(),
+      h4("Read more"),
       uiOutput("validation_message")
     )
   )
