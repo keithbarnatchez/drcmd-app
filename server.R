@@ -1,5 +1,8 @@
 library(shiny)
 library(shinyjs)
+library(drcmd)
+library(SuperLearner)
+loadNamespace("SuperLearner")
 
 function(input, output, session) {
 
@@ -170,14 +173,12 @@ function(input, output, session) {
       # check that all elements in the column are numeric and in (0,1)
       if (!all(sapply(ccp_values, is.numeric)) || !all(unlist(ccp_values) > 0 & unlist(ccp_values) < 1)) {
         errors <- append(errors, "Your complete case probabilities must be entirely numeric probabilities ∈ (0,1).")
-        print(input$complete_case_probability)
       }
     }
     
     if (!is.null(input$proxy_variables) && input$proxy_variables != "") {
       if (!all(sapply(proxy_values, is.numeric))) {
         errors <- append(errors, "Your proxy variables must be entirely numeric.")
-        print(proxy_values)
       }
     }
     
@@ -243,15 +244,48 @@ function(input, output, session) {
 
   # run drcmd (will store results as output object)
   # we'll get to this eventually, leaving blank for now to focus on inputs
-  drcmd_obj <- eventReactive(input$run_drcmd, {
+  drcmd_obj <- eventReactive(input$run_regression, {
     req(data(), input$outcome, input$treatment)
-    vals <- 1
-    vals
+    df <- data()
+    
+    # mandatory variables here
+    Y_var <- df[[input$outcome]]
+    A_var <- df[[input$treatment]]
+    X_var <- df[, input$covariates, drop = FALSE]
+    default_learners <- if (is.null(input$default_learners) || input$default_learners == "") NULL else input$default_learners
+    
+    # other variables here
+    W_var <- if(!is.null(input$proxy_variables) && input$proxy_variables != "") {
+      df[, input$proxy_variables, drop = FALSE]
+    }
+    
+    R_var <- if(!is.null(input$complete_case_probability) && input$complete_case_probability != ""){ 
+      df[[input$complete_case_probability]]
+    }
+    
+    
+    result <- drcmd::drcmd(Y=Y_var,
+                           A=A_var,
+                           X=X_var,
+                           W=W_var,
+                           R=R_var,
+                           default_learners = input$default_learners,
+                           m_learners = input$outcome_learners,
+                           g_learners = input$treatment_learners,
+                           r_learners = input$complete_case_probability_learners,
+                           po_learners = input$pseudo_outcome_learners,
+                           eem_ind = if (input$empirical_efficiency == "True") TRUE else FALSE,
+                           tml = if (input$targetted_maximum == "True") TRUE else FALSE,
+                           k = input$`Cross-fitting`,
+                           cutoff = input$`truncate-propensity`,
+                           ) 
+    
+    result
   })
 
   # Output drcmd_results
   output$drcmd_output <- renderPrint({
     req(drcmd_obj())
-    print(drcmd_obj()) # will want to do something that makes better-looking output
+    print(summary(drcmd_obj(),detail=TRUE)) # will want to do something that makes better-looking output
   })
 }
