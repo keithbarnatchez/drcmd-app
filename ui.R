@@ -11,6 +11,7 @@ library(tippy)
 learners = SuperLearner::listWrappers(what='SL')
 learners = learners[startsWith(learners, 'SL.')]
 
+
 learners_with_none <- c("None" = "", learners)
 
 fluidPage(
@@ -49,6 +50,7 @@ fluidPage(
       selectInput("outcome", "Select Outcome Variable", choices = NULL), # Y
       # actionButton("infoButton1", "hover", title = "This is a tooltip"),
       selectInput("treatment", "Select Treatment Variable", choices = NULL), # A
+      
       selectizeInput(
         "covariates", "Select Covariate(s)",
         label = tags$span("Select Covariates", id = "covariates_label"),
@@ -103,12 +105,12 @@ fluidPage(
                    
                    selectInput('complete_case_probability', '',
                                label = tags$span("Select complete case probability column", id = "complete_case_label"),
-                               choices=NULL,
+                               choices=c("None selected"= ""),
                                multiple=FALSE),
                    
                    selectInput('proxy_variables', '', # added this for proxy
                                label = tags$span("Select proxy variable column", id = "proxy_variables_label"),
-                               choices=NULL,
+                               choices=c("None selected"= ""),
                                multiple=FALSE),
                    
                    selectInput('treatment_learners', '',
