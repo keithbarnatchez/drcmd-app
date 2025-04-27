@@ -3,7 +3,7 @@ library(shinythemes)
 library(shinyjs) # need this for allowing buttons to interact with each other
 library(shinyBS) # allows for hovering descriptions
 library(tippy)
-
+library(DT)
 
 # SL libraries available to the user
 # Note: we'll want to create a "crosswalk" that translates these into plain-english
@@ -35,7 +35,7 @@ fluidPage(
   "))
   ),
   
-  theme = shinytheme("flatly"),
+  theme = shinytheme("yeti"),
   useShinyjs(),  # Initialize shinyjs
   titlePanel("drcmd: Doubly-robust causal inference with missing data"),
   sidebarLayout(
@@ -86,7 +86,6 @@ fluidPage(
       bsCollapse(id = "advancedOptions", open = NULL,  # nothing open by default
                  bsCollapsePanel(
                    "Advanced Options",  # title of the collapsible section
-                   # Add your menu options here with default values
                    tags$label(id = "cross_fitting_label", "Number of folds"), # Need to make a tag for just the title. 
                    numericInput("Cross-fitting", NULL, value = 1), #"By default, DRCMD uses a single fold"
                    tippy_this("cross_fitting_label", "Cross-fitting estimates parameters by splitting data into multiple folds (k-folds). This helps reduce bias when using complex models like random forests. By default, drcmd uses a single fold. Set k to enable cross-fitting. See the technical details section for more info.", placement = "right", animation= "shift away", theme="light-border"), # Copied your look for the pop-up here and for the rest of the popups
@@ -202,15 +201,42 @@ fluidPage(
     
     # Main panel on the right for output
     mainPanel(
-      # h4("Dataset Preview"),
+      
+      h4("Dataset Preview"),
       tableOutput("datatable"),
+      
       hr(),
-      h4("Results"),
-      verbatimTextOutput("drcmd_output"),
+      h4("Results Summary"),
+      DTOutput("results_table"),  # interactive results table
+      
+      br(),
+      h4("Variables with Missingness"),
+      fluidRow(
+        column(6,
+               h4("U Variables:"),
+               verbatimTextOutput("u_variables")
+        ),
+        column(6,
+               h4("Z Variables:"),
+               verbatimTextOutput("z_variables")
+        )
+      ),
+      
+      
+      br(),
+      bsCollapse(id = "details", open = NULL,
+                 bsCollapsePanel(
+                   "Detailed Parameters Used",
+                   verbatimTextOutput("details_output"),
+                   style = "primary"
+                 )
+      ),
+      
       hr(),
       h4("Diagnostic Plots"),
+      
+      
       hr(),
-      h4("Read more"),
       uiOutput("validation_message")
     )
   )

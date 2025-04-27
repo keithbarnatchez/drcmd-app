@@ -253,66 +253,108 @@ function(input, output, session) {
     req(data(), input$outcome, input$treatment)
     df <- data()
     
-    # mandatory variables here
     Y_var <- df[[input$outcome]]
     A_var <- df[[input$treatment]]
     X_var <- df[, input$covariates, drop = FALSE]
-    default_learners <- if (is.null(input$default_learners) || input$default_learners == "") NULL else input$default_learners
     
-    # other variables here
-    W_var <- if(!is.null(input$proxy_variables) && input$proxy_variables != "") {
-      df[, input$proxy_variables, drop = FALSE]
-    }
-    
-    R_var <- if(!is.null(input$complete_case_probability) && input$complete_case_probability != ""){ 
+    # Handle R (use user-provided column if specified)
+    R_var <- if (input$complete_case_probability != "") {
       df[[input$complete_case_probability]]
+    } else {
+      NULL
     }
     
-    if (!"R" %in% names(df)) {
-      df$R <- ifelse(is.na(df[[input$outcome]]), 0, 1)
-    }
-    
+    # Learners handling with NULL instead of NA
     fixLearnerParameters <- function(learner_param) {
       if (is.null(learner_param)) return(NULL)
       if (length(learner_param) == 0 || all(learner_param == "") || all(is.na(learner_param))) return(NULL)
       return(learner_param)
     }
     
-    
     check_learners <- function(x) {
       if (is.null(x)) return(NULL)
-      x <- x[x != "" & x != "NA" & !is.na(x)]
-      if (length(x) == 0) return(NULL)
-      return(x)
+      x_clean <- x[x != "" & x != "NA" & !is.na(x)]
+      if (length(x_clean) == 0) return(NULL)
+      x_clean
     }
     
+    fixCcpProxy <- function(ccpProxy) {
+
+    }
     
-    
-    
-    result <- drcmd::drcmd(Y=Y_var,
-                           A=A_var,
-                           X=X_var,
-                           W=W_var,
-                           R=df$R,
-                           default_learners = fixLearnerParameters(input$default_learners),
-                           m_learners = check_learners(input$m_learners),
-                           g_learners = check_learners(input$g_learners),
-                           r_learners = check_learners(input$r_learners),
-                           po_learners = check_learners(input$po_learners),
-                           eem_ind = if (input$empirical_efficiency == "True") TRUE else FALSE,
-                           tml = input$`targetted_maximum`,
-                           k = input$`Cross-fitting`,
-                           cutoff = input$`truncate-propensity`,
-                           nboot=0
-    ) 
+    result <- drcmd::drcmd(
+      Y = Y_var,
+      A = A_var,
+      X = X_var,
+      W = if (input$proxy_variables != "") df[, input$proxy_variables, drop = FALSE] else NULL,
+      R = R_var, # Use user-provided R here
+      default_learners = fixLearnerParameters(input$default_learners),
+      m_learners = check_learners(input$m_learners),
+      g_learners = check_learners(input$g_learners),
+      r_learners = check_learners(input$r_learners),
+      po_learners = check_learners(input$po_learners),
+      eem_ind = input$empirical_efficiency == "True",
+      tml = input$targetted_maximum == "True", # Ensure logical
+      k = input$`Cross-fitting`,
+      cutoff = input$`truncate-propensity`,
+      nboot = 0
+    )
     
     result
   })
   
-  # Output drcmd_results
+    
+    output$results_table <- renderDT({
+      req(drcmd_obj())
+      
+      estimates <- drcmd_obj()$results$estimates
+      ses <- drcmd_obj()$results$ses
+      
+      data.frame(
+        Estimand = c("ATE", "E[Y(1)]", "E[Y(0)]", "Risk Ratio", "Odds Ratio"),
+        Estimate = c(estimates$psi_hat_ate, estimates$psi_1_hat, estimates$psi_0_hat, 
+                     estimates$psi_hat_rr, estimates$psi_hat_or),
+        SE = c(ses$psi_hat_ate, ses$psi_1_hat, ses$psi_0_hat, 
+               ses$psi_hat_rr, ses$psi_hat_or),
+        CI = c(
+          sprintf("[%.3f, %.3f]", estimates$psi_hat_ate - 1.96*ses$psi_hat_ate, estimates$psi_hat_ate + 1.96*ses$psi_hat_ate),
+          sprintf("[%.3f, %.3f]", estimates$psi_1_hat - 1.96*ses$psi_1_hat, estimates$psi_1_hat + 1.96*ses$psi_1_hat),
+          sprintf("[%.3f, %.3f]", estimates$psi_0_hat - 1.96*ses$psi_0_hat, estimates$psi_0_hat + 1.96*ses$psi_0_hat),
+          if (!is.na(estimates$psi_hat_rr)) sprintf("[%.3f, %.3f]", estimates$psi_hat_rr - 1.96*ses$psi_hat_rr, estimates$psi_hat_rr + 1.96*ses$psi_hat_rr) else NA,
+          if (!is.na(estimates$psi_hat_or)) sprintf("[%.3f, %.3f]", estimates$psi_hat_or - 1.96*ses$psi_hat_or, estimates$psi_hat_or + 1.96*ses$psi_hat_or) else NA
+        )
+      )
+    }, options = list(dom = 't')) # only show table, no search bar
+    
+    output$u_variables <- renderPrint({
+      req(drcmd_obj())
+      paste(drcmd_obj()$U, collapse = ", ")
+    })
+    
+    output$z_variables <- renderPrint({
+      req(drcmd_obj())
+      paste(drcmd_obj()$Z, collapse = ", ")
+    })
+    
+    output$details_output <- renderPrint({
+      req(drcmd_obj())
+      list(
+        k_folds = drcmd_obj()$params$k,
+        nboot = drcmd_obj()$params$nboot,
+        m_learners = drcmd_obj()$params$m_learners,
+        g_learners = drcmd_obj()$params$g_learners,
+        r_learners = drcmd_obj()$params$r_learners,
+        po_learners = drcmd_obj()$params$po_learners,
+        estimation_method = if (drcmd_obj()$params$tml) "Targeted Maximum Likelihood" else if (result()$params$eem_ind) "Augmented one-step with EEM" else "Augmented one-step"
+      )
+    })
+  
+  
+  
+  # output drcmd_results
   output$drcmd_output <- renderPrint({
     req(drcmd_obj())
-    print(drcmd_obj()$results$estimates)
+    summary(drcmd_obj())  
   })
   
 }
