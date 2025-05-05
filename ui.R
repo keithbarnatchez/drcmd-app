@@ -3,12 +3,16 @@ library(shinythemes)
 library(shinyjs) # need this for allowing buttons to interact with each other
 library(shinyBS) # allows for hovering descriptions
 library(tippy)
+library(DT)
 
 # SL libraries available to the user
 # Note: we'll want to create a "crosswalk" that translates these into plain-english
 # options users will be able to interpret. e.g. SL.nnet -> Neural networks (nnet package)
 learners = SuperLearner::listWrappers(what='SL')
 learners = learners[startsWith(learners, 'SL.')]
+
+
+learners_with_none <- c("None" = "", learners)
 
 fluidPage(
   
@@ -31,7 +35,7 @@ fluidPage(
   "))
   ),
   
-  theme = shinytheme("flatly"),
+  theme = shinytheme("yeti"),
   useShinyjs(),  # Initialize shinyjs
   titlePanel("drcmd: Doubly-robust causal inference with missing data"),
   sidebarLayout(
@@ -46,6 +50,7 @@ fluidPage(
       selectInput("outcome", "Select Outcome Variable", choices = NULL), # Y
       # actionButton("infoButton1", "hover", title = "This is a tooltip"),
       selectInput("treatment", "Select Treatment Variable", choices = NULL), # A
+      
       selectizeInput(
         "covariates", "Select Covariate(s)",
         label = tags$span("Select Covariates", id = "covariates_label"),
@@ -81,7 +86,6 @@ fluidPage(
       bsCollapse(id = "advancedOptions", open = NULL,  # nothing open by default
                  bsCollapsePanel(
                    "Advanced Options",  # title of the collapsible section
-                   # Add your menu options here with default values
                    tags$label(id = "cross_fitting_label", "Number of folds"), # Need to make a tag for just the title. 
                    numericInput("Cross-fitting", NULL, value = 1), #"By default, DRCMD uses a single fold"
                    tippy_this("cross_fitting_label", "Cross-fitting estimates parameters by splitting data into multiple folds (k-folds). This helps reduce bias when using complex models like random forests. By default, drcmd uses a single fold. Set k to enable cross-fitting. See the technical details section for more info.", placement = "right", animation= "shift away", theme="light-border"), # Copied your look for the pop-up here and for the rest of the popups
@@ -95,38 +99,42 @@ fluidPage(
                    tippy_this("targetted_maximum_label", "Targeted Maximum Likelihood Estimation (TML) is an alternative approach to estimate counterfactual means and treatment effects. Unlike the default one-step debiased estimators, TML refines the final estimators by targeting the likelihood function to improve accuracy. Set `tml = TRUE` to use this asymptotically equivalent method.", placement = "right", animation= "shift away", theme="light-border"), 
                    
                    tags$label(id = "truncate_propensity_label", "Trimming of propensity scores"),
-                   numericInput("truncate-propensity", NULL, value = 0, min = 0, max = 0.5),
+                   numericInput("truncate-propensity", NULL, value = 0.025, min = 0, max = 0.5),
                    tippy_this("truncate_propensity_label", "Trimming of propensity scores helps prevent unstable estimators by limiting extreme values, which are used in inverse probability weights. By default, drcmd trims scores at 0.025 and 0.975. You can adjust this range by setting the `cutoff` argument to specify custom limits (e.g., setting `cutoff = 0` avoids trimming) The number you select is symmetrical. Value ∈ [0,0.5]", placement = "right", animation= "shift away", theme="light-border"), 
                    
                    selectInput('complete_case_probability', '',
                                label = tags$span("Select complete case probability column", id = "complete_case_label"),
-                               choices=NULL,
+                               choices=c("None selected"= ""),
                                multiple=FALSE),
                    
                    selectInput('proxy_variables', '', # added this for proxy
                                label = tags$span("Select proxy variable column", id = "proxy_variables_label"),
-                               choices=NULL,
+                               choices=c("None selected"= ""),
                                multiple=FALSE),
                    
                    selectInput('treatment_learners', '',
                                label = tags$span("Select treatment learner", id = "treatment_learners_label"),
-                               choices=learners,
-                               multiple=FALSE),
+                               choices=learners_with_none,
+                               multiple=FALSE,
+                               ),
                    
                    selectInput('outcome_learners', '',
                                label = tags$span("Select outcome learner", id = "outcome_learners_label"),
-                               choices=learners,
-                               multiple=FALSE),
+                               choices=learners_with_none,
+                               multiple=FALSE,
+                               ),
                    
-                   selectInput('pseudo-outcome_learners', '',
+                   selectInput('pseudo_outcome_learners', '',
                                label = tags$span("Select pseudo-outcome learner", id = "psuedo-learners_label"),
-                               choices=learners,
-                               multiple=FALSE),
+                               choices=learners_with_none,
+                               multiple=FALSE,
+                               ),
                    
                    selectInput('complete_case_probability_learners', '',
                                label = tags$span("Select complete-case probability learner", id = "complete_case_learners_label"),
-                               choices=learners,
-                               multiple=FALSE),
+                               choices=learners_with_none,
+                               multiple=FALSE,
+                               ),
                    
                    
                    style = "primary"
@@ -193,11 +201,42 @@ fluidPage(
     
     # Main panel on the right for output
     mainPanel(
-      # h4("Dataset Preview"),
+      
+      h4("Dataset Preview"),
       tableOutput("datatable"),
+      
       hr(),
-      h4("Results"),
-      verbatimTextOutput("drcmd_output"),
+      h4("Results Summary"),
+      DTOutput("results_table"),  # interactive results table
+      
+      br(),
+      h4("Variables with Missingness"),
+      fluidRow(
+        column(6,
+               h4("U Variables:"),
+               verbatimTextOutput("u_variables")
+        ),
+        column(6,
+               h4("Z Variables:"),
+               verbatimTextOutput("z_variables")
+        )
+      ),
+      
+      
+      br(),
+      bsCollapse(id = "details", open = NULL,
+                 bsCollapsePanel(
+                   "Detailed Parameters Used",
+                   verbatimTextOutput("details_output"),
+                   style = "primary"
+                 )
+      ),
+      
+      hr(),
+      h4("Diagnostic Plots"),
+      
+      
+      hr(),
       uiOutput("validation_message")
     )
   )
