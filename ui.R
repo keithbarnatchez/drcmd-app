@@ -33,12 +33,45 @@ fluidPage(
         #truncate-propensity {
             -moz-appearance: textfield;
         }
+        .sidebar-container {
+        position: fixed;
+        width: 25%; /* Adjust based on your needs */
+        height: 100vh;
+        overflow-y: auto;
+        top: 0;
+        left: 0;
+        padding-top: 20px;
+        background-color: #f8f9fa;
+        z-index: 1000;
+        }
+    
+        .main-container {
+        margin-left: 25%; /* Should match sidebar width */
+        width: 75%; /* Should be 100% minus sidebar width */
+        height: 100vh;
+        overflow-y: auto;
+        padding: 20px;
+        }
+    
+        /* Adjust for smaller screens */
+        @media (max-width: 768px) {
+        .sidebar-container {
+        position: relative;
+        width: 100%;
+        height: auto;
+        }
+        .main-container {
+        margin-left: 0;
+        width: 100%;
+        }
+    }
   "))
   ),
   
   theme = shinytheme("yeti"),
   useShinyjs(),  # Initialize shinyjs
   titlePanel("drcmd: Doubly-robust causal inference with missing data"),
+  div(class = "sidebar-container",
   sidebarLayout(
     
     # Panel on the lefthand side for input
@@ -49,7 +82,6 @@ fluidPage(
       
       #-------------- Variable selection -------------
       selectInput("outcome", "Select Outcome Variable", choices = NULL), # Y
-      # actionButton("infoButton1", "hover", title = "This is a tooltip"),
       selectInput("treatment", "Select Treatment Variable", choices = NULL), # A
       
       selectizeInput(
@@ -140,6 +172,7 @@ fluidPage(
                    
                    style = "primary"
                  )
+      )
       ),
       
       #-------------- Hovering labels for menu items -------------
@@ -226,6 +259,7 @@ fluidPage(
     ),
     
     # Main panel on the right for output
+    div(class = "main-container",
     mainPanel(
       
       h4("Dataset Preview"),
@@ -277,4 +311,5 @@ fluidPage(
       uiOutput("validation_message")
     )
   )
+)
 )

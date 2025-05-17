@@ -300,6 +300,20 @@ function(input, output, session) {
     }
     W <- if (input$proxy_variables != "") df[, input$proxy_variables, drop = FALSE] else NULL
     R <- R_var # Use user-provided R here
+    
+    m   <- check_learners(input$m_learners)
+    g   <- check_learners(input$g_learners)
+    r   <- check_learners(input$r_learners)
+    po  <- check_learners(input$po_learners)
+    
+    all_specified <- all(!sapply(list(m,g,r,po), is.null))
+    
+    default_arg <- if (all_specified) {
+      NULL
+    } else {
+      c("SL.mean", "SL.glm", "SL.ranger")
+    }
+    
 
     if(is.null(W) && is.null(R)){
     result <- drcmd::drcmd(
@@ -308,11 +322,11 @@ function(input, output, session) {
       X = X_var,
       #
       #
-      default_learners = fixLearnerParameters(input$default_learners),
-      m_learners = check_learners(input$m_learners),
-      g_learners = check_learners(input$g_learners),
-      r_learners = check_learners(input$r_learners),
-      po_learners = check_learners(input$po_learners),
+      default_learners = default_arg,
+      m_learners       = m,
+      g_learners       = g,
+      r_learners       = r,
+      po_learners      = po,
       eem_ind = input$empirical_efficiency == "True",
       tml = input$targetted_maximum == "True", # Ensure logical
       k = input$`Cross-fitting`,
@@ -326,11 +340,11 @@ function(input, output, session) {
         X = X_var,
         #
         R = R_var,
-        default_learners = fixLearnerParameters(input$default_learners),
-        m_learners = check_learners(input$m_learners),
-        g_learners = check_learners(input$g_learners),
-        r_learners = check_learners(input$r_learners),
-        po_learners = check_learners(input$po_learners),
+        default_learners = default_arg,
+        m_learners       = m,
+        g_learners       = g,
+        r_learners       = r,
+        po_learners      = po,
         eem_ind = input$empirical_efficiency == "True",
         tml = input$targetted_maximum == "True", # Ensure logical
         k = input$`Cross-fitting`,
@@ -344,11 +358,11 @@ function(input, output, session) {
           X = X_var,
           W = W,
           #
-          default_learners = fixLearnerParameters(input$default_learners),
-          m_learners = check_learners(input$m_learners),
-          g_learners = check_learners(input$g_learners),
-          r_learners = check_learners(input$r_learners),
-          po_learners = check_learners(input$po_learners),
+          default_learners = default_arg,
+          m_learners       = m,
+          g_learners       = g,
+          r_learners       = r,
+          po_learners      = po,
           eem_ind = input$empirical_efficiency == "True",
           tml = input$targetted_maximum == "True", # Ensure logical
           k = input$`Cross-fitting`,
@@ -362,18 +376,37 @@ function(input, output, session) {
           X = X_var,
           W = W,
           R = R_var,
-          default_learners = fixLearnerParameters(input$default_learners),
-          m_learners = check_learners(input$m_learners),
-          g_learners = check_learners(input$g_learners),
-          r_learners = check_learners(input$r_learners),
-          po_learners = check_learners(input$po_learners),
+          default_learners = default_arg,
+          m_learners       = m,
+          g_learners       = g,
+          r_learners       = r,
+          po_learners      = po,
           eem_ind = input$empirical_efficiency == "True",
           tml = input$targetted_maximum == "True", # Ensure logical
           k = input$`Cross-fitting`,
           cutoff = input$`truncate-propensity`,
           nboot = 0
         )
-      }
+    }
+    if (is.null(R)) {
+        result <- drcmd::drcmd(
+          Y = Y_var,
+          A = A_var,
+          X = X_var,
+          W = W,
+          #
+          default_learners = default_arg,
+          m_learners       = m,
+          g_learners       = g,
+          r_learners       = r,
+          po_learners      = po,
+          eem_ind = input$empirical_efficiency == "True",
+          tml = input$targetted_maximum == "True", # Ensure logical
+          k = input$`Cross-fitting`,
+          cutoff = input$`truncate-propensity`,
+          nboot = 0
+        )
+    }
     
     result
   })
