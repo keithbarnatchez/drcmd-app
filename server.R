@@ -2,7 +2,6 @@ library(shiny)
 library(shinyjs)
 library(SuperLearner)
 library(drcmd)
-library(rJava)
 library(ranger)
 
 function(input, output, session) {
@@ -129,7 +128,7 @@ function(input, output, session) {
     
     covariate_values <- NULL
     if (!is.null(input$covariates) && length(input$covariates) > 0) {
-      covariate_values <- data()
+      covariate_values <- data()[[input$covariates]]
     }
     
     ccp_values <- NULL
@@ -165,6 +164,7 @@ function(input, output, session) {
       numeric_check <- sapply(covariate_values, is.numeric)
       if (!all(numeric_check)) {
         errors <- append(errors, "Your covariates column(s) must be entirely numeric.")
+        print(covariate_values)
       }
     }
     
@@ -286,13 +286,13 @@ function(input, output, session) {
       Y = Y_var,
       A = A_var,
       X = X_var,
-      W = if (input$proxy_variables != "") df[, input$proxy_variables, drop = FALSE] else NULL,
-      R = R_var, # Use user-provided R here
+      W = if (input$proxy_variables != "") df[, input$proxy_variables, drop = FALSE] else NA,
+      Rprobs = if (!is.null(R_var)) R_var else NA,
       default_learners = fixLearnerParameters(input$default_learners),
-      m_learners = check_learners(input$m_learners),
-      g_learners = check_learners(input$g_learners),
-      r_learners = check_learners(input$r_learners),
-      po_learners = check_learners(input$po_learners),
+      m_learners = check_learners(input$outcome_learners),
+      g_learners = check_learners(input$treatment_learners),
+      r_learners = check_learners(input$complete_case_probability_learners),
+      po_learners = check_learners(input$pseudo_outcome_learners),
       eem_ind = input$empirical_efficiency == "True",
       tml = input$targetted_maximum == "True", # Ensure logical
       k = input$`Cross-fitting`,
@@ -345,7 +345,7 @@ function(input, output, session) {
         g_learners = drcmd_obj()$params$g_learners,
         r_learners = drcmd_obj()$params$r_learners,
         po_learners = drcmd_obj()$params$po_learners,
-        estimation_method = if (drcmd_obj()$params$tml) "Targeted Maximum Likelihood" else if (result()$params$eem_ind) "Augmented one-step with EEM" else "Augmented one-step"
+        estimation_method = if (drcmd_obj()$params$tml) "Targeted Maximum Likelihood" else if (drcmd_obj()$params$eem_ind) "Augmented one-step with EEM" else "Augmented one-step"
       )
     })
   

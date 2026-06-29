@@ -5,14 +5,27 @@ library(shinyBS) # allows for hovering descriptions
 library(tippy)
 library(DT)
 
-# SL libraries available to the user
-# Note: we'll want to create a "crosswalk" that translates these into plain-english
-# options users will be able to interpret. e.g. SL.nnet -> Neural networks (nnet package)
-learners = SuperLearner::listWrappers(what='SL')
-learners = learners[startsWith(learners, 'SL.')]
+# Plain-English crosswalk for SuperLearner libraries.
+# Named vector: names = what the user sees, values = SL code passed to drcmd.
+# Shiny selectInput displays the names but returns the values, so no
+# server-side conversion is needed.
+learners <- c(
+  "Linear / Logistic Regression"              = "SL.glm",
+  "GLM with Interactions"                     = "SL.glm.interaction",
+  "Stepwise Regression"                       = "SL.step",
+  "Stepwise Regression with Interactions"     = "SL.step.interaction",
+  "Generalized Additive Model (GAM)"          = "SL.gam",
+  "Multivariate Adaptive Regression Splines"  = "SL.earth",
+  "Elastic Net / LASSO"                       = "SL.glmnet",
+  "Random Forest"                             = "SL.ranger",
+  "Gradient Boosting (XGBoost)"               = "SL.xgboost",
+  "Neural Network"                            = "SL.nnet",
+  "Bayesian GLM"                              = "SL.bayesglm",
+  "K-Nearest Neighbors"                       = "SL.kernelKnn",
+  "Mean (intercept only)"                     = "SL.mean"
+)
 
-
-learners_with_none <- c("None" = "", learners)
+learners_with_none <- c("None (use default)" = "", learners)
 
 fluidPage(
   
@@ -38,6 +51,11 @@ fluidPage(
   theme = shinytheme("yeti"),
   useShinyjs(),  # Initialize shinyjs
   titlePanel("drcmd: Doubly-robust causal inference with missing data"),
+  h5(tags$em("Griffin DesRoches and Keith Barnatchez"),
+     style = "color: #6c757d; margin-top: -10px; margin-bottom: 15px;"),
+  p("For methodological details and documentation, see the ",
+    tags$a(href = "https://github.com/keithbarnatchez/drcmd",
+           target = "_blank", "drcmd GitHub repository"), "."),
   sidebarLayout(
     
     # Panel on the lefthand side for input
